@@ -7,15 +7,6 @@ import sys
 from myAxes import Axes
 from trackbar import trackbar
 
-argc = len(sys.argv)
-
-# Abre el flujo en donde vienen 
-#if argc < 2:
-#   print("Es necesario pasa un parámetro")
-#   exit(1)
-
-WIDTH = 1024
-HEIGHT = 768
 
 class Square:
    def __init__(self, axes, side=10):
@@ -40,14 +31,9 @@ class Square:
       for i in range(4):
          p = self.Scale @ self.P[:,i]
          p = p / p[2]
-         #self.sReg[i,:] = [int(np.round(x)) for x in [nrm * (self.Cx+self.P[0,i]), nrm * (self.Cy-self.P[1,i])]]
          self.sReg[i,:] = [int(np.round(x)) for x in [p[0], p[1]]]
          cv2.circle(Img, (self.sReg[i, 0], self.sReg[i,1]), 3, colorCrns, 2)
       cv2.polylines(Img, [self.sReg], True, colorSq)
-
-plane = np.zeros((HEIGHT, WIDTH, 3), dtype=np.uint8)
-
-
 
 class homography:
    def __init__(self, w, h):
@@ -58,37 +44,70 @@ class homography:
       self.tx = self.ty = 0.
       self.theta = self.phi = 0.
       self.l1 = self.l2 = 1.
+      self.scale = 1.
       self.v1 = self.v2 = 0.
       self.Rpp = np.eye(2)
       self.Rmp = np.eye(2)
       self.Rth = np.eye(2)
       self.L = np.eye(2)
       self.H = np.eye(3)
+      self.hWidth = 600
+      self.hHeight = 320
       self.winName = "Homografia"
-      self.fondo=np.zeros((400,600,3), dtype=np.uint8)
+      self.hDisplay = np.zeros((self.hHeight, self.hWidth, 3), dtype=np.uint8)
 
       cv2.namedWindow(self.winName, cv2.WINDOW_AUTOSIZE | cv2.WINDOW_KEEPRATIO | cv2.WINDOW_GUI_EXPANDED )
-      cv2.imshow(self.winName, self.fondo)
+      self.drawHomographyMatrix()
       cv2.waitKey(1)
 
-      self.txTB = trackbar("Tx", self.winName, -self.width//40, self.width//40,  0, grain=self.width)
-      self.tyTB = trackbar("Ty", self.winName, -self.height//40, self.height//40, 0, grain=self.height)
-      self.l1TB = trackbar("L1", self.winName,0.1, 4, 1, grain=100)
-      self.l2TB = trackbar("L2", self.winName,0.1, 4, 1, grain=100)
+      self.txTB = trackbar("Tx", self.winName, -(self.width//40), self.width//40,  0, grain=self.width)
+      self.tyTB = trackbar("Ty", self.winName, -(self.height//40), self.height//40, 0, grain=self.height)
+      self.l1TB = trackbar("L1", self.winName, 1/100, 3, 1, grain=100)
+      self.l2TB = trackbar("L2", self.winName,1/100, 3, 1, grain=100)
+      self.sTB  = trackbar("Scale", self.winName, -1, 1, 0, grain=60)
       self.thetaTB = trackbar("Theta", self.winName, -np.pi, np.pi, 0, grain=360)
       self.phiTB = trackbar("Phi", self.winName, -np.pi, np.pi, 0, grain=360)
       self.v1TB = trackbar("V1", self.winName, -0.075, 0.075, 0, grain=200)
       self.v2TB = trackbar("V2", self.winName, -0.075, 0.075, 0, grain=200)
       self.assignCallBacks()
       self.launchTrackbars()
+
+   def drawBracket(self, x, y, w, h, lw):
+      bracket = [[w + x, -0.5 * h + y],\
+                 [    x, -0.5 * h + y],\
+                 [    x,  0.5 * h + y],\
+                 [w + x,  0.5 * h + y]]
+      for i in range(3):
+         pa = [int(np.round(x)) for x in bracket[i][:]]
+         pb = [int(np.round(x)) for x in bracket[i + 1][:]]
+         cv2.line(self.hDisplay, pa, pb, (255, 255, 255), lw)
+
+   def drawHomographyMatrix(self):
+      self.hDisplay = np.zeros((self.hHeight, self.hWidth, 3), dtype=np.uint8)
+      
+      cv2.putText(self.hDisplay, "H =", (10,90), cv2.FONT_HERSHEY_COMPLEX, 1, (255,255,255), 2, cv2.LINE_AA, False)
+      for i in range(3):
+         s = "%+ 10.6f, %+ 10.6f, %+ 10.6f" % (self.H[i,0], self.H[i,1], self.H[i,2])
+         cv2.putText(self.hDisplay, s, (90,60+30*i), cv2.FONT_HERSHEY_COMPLEX, 0.75, (255,255,255), 1, cv2.LINE_AA, False)
+      self.drawBracket( 90, 85, 20, 110, 3)
+      self.drawBracket( 580, 85, -20, 110, 3)
+
+      cv2.line(self.hDisplay, (10,180), (self.hWidth - 10, 180), (192, 192, 192), 3)
+      
+      cv2.putText(self.hDisplay, "Tx = %+ 5.2f, L1 = %+ 5.2f, theta = %+ 5.2f" % (self.tx, self.l1, self.theta), (20, 220), cv2.FONT_HERSHEY_COMPLEX, 0.75, (255,255,255), 1, cv2.LINE_AA, False)
+      cv2.putText(self.hDisplay, "Ty = %+ 5.2f, L2 = %+ 5.2f, phi   = %+ 5.2f" % (self.ty, self.l2, self.phi), (20, 250), cv2.FONT_HERSHEY_COMPLEX, 0.75, (255,255,255), 1, cv2.LINE_AA, False)
+      cv2.putText(self.hDisplay, "v1 = %+ 5.2f, v2 = %+ 5.2f, Scale = %+ 5.2f" % (self.v1, self.v2, self.scale), (20, 280), cv2.FONT_HERSHEY_COMPLEX, 0.75, (255,255,255), 1, cv2.LINE_AA, False)
       
 
+      cv2.imshow(self.winName, self.hDisplay)
+      
    def reset(self):
       self.H = np.eye(3)
       self.tx = self.ty = 1.
       self.v1 = self.v2 = 0.
       self.theta = self.phi = 0.
       self.l1 = self.l2 = 1.
+      self.scale = 1.
       self.txTB.reset()
       self.tyTB.reset()
       self.l1TB.reset()
@@ -97,6 +116,7 @@ class homography:
       self.phiTB.reset()
       self.v1TB.reset()
       self.v2TB.reset()
+      self.drawHomographyMatrix()
       self.change = True
       
 
@@ -113,6 +133,7 @@ class homography:
       self.txTB.pos2Val(pos)
       self.tx = self.txTB.value
       self.H[0,2] = self.tx
+      self.drawHomographyMatrix()
       self.change = True
 
    def onTy(self, pos):
@@ -120,6 +141,7 @@ class homography:
       self.tyTB.pos2Val(pos)
       self.ty = self.tyTB.value
       self.H[1,2] = self.ty
+      self.drawHomographyMatrix()
       self.change = True
 
    def onL1(self, pos):
@@ -127,7 +149,8 @@ class homography:
       self.l1TB.pos2Val(pos)
       self.l1 = self.l1TB.value
       self.L[0,0] = self.l1
-      self.H[:2,:2] = self.computeA() 
+      self.H[:2,:2] = self.computeA()
+      self.drawHomographyMatrix()
       self.change = True
 
    def onL2(self, pos):
@@ -135,7 +158,29 @@ class homography:
       self.l2TB.pos2Val(pos)
       self.l2 = self.l2TB.value
       self.L[1,1] = self.l2
-      self.H[:2,:2] = self.computeA() 
+      self.H[:2,:2] = self.computeA()
+      self.drawHomographyMatrix()
+      self.change = True
+
+   def onS(self, pos):
+      bkup = [self.sTB.position, self.sTB.value]
+      self.sTB.position = pos
+      self.sTB.pos2Val(pos)
+      newL1Value = self.l1 + self.sTB.value
+      newL2Value = self.l2 + self.sTB.value
+      if not self.l1TB.withinBounds(newL1Value) or not self.l1TB.withinBounds(newL2Value):
+         self.sTB.position = bkup[0]
+         self.sTB.value = bkup[1]
+         return
+      self.scale = self.sTB.value
+      self.l1TB.val2Pos(newL1Value)
+      self.l2TB.val2Pos(newL2Value)
+      self.onL1(self.l1TB.position)
+      self.onL2(self.l2TB.position)
+      cv2.setTrackbarPos(self.l1TB.barName, self.l1TB.winName, self.l1TB.position)
+      cv2.setTrackbarPos(self.l2TB.barName, self.l2TB.winName, self.l2TB.position)
+      self.H[:2,:2] = self.computeA()
+      self.drawHomographyMatrix()
       self.change = True
    
    def onTheta(self, pos):
@@ -143,7 +188,8 @@ class homography:
       self.thetaTB.pos2Val(pos)
       self.theta = self.thetaTB.value
       self.Rth = self.Rot(self.theta)
-      self.H[:2,:2] = self.computeA() 
+      self.H[:2,:2] = self.computeA()
+      self.drawHomographyMatrix()
       self.change = True
 
    def onPhi(self, pos):
@@ -152,7 +198,8 @@ class homography:
       self.phi = self.phiTB.value
       self.Rpp = self.Rot(self.phi)
       self.Rmp = self.Rot(-self.phi)
-      self.H[:2,:2] = self.computeA() 
+      self.H[:2,:2] = self.computeA()
+      self.drawHomographyMatrix()
       self.change = True
 
    def onV1(self, pos):
@@ -160,13 +207,16 @@ class homography:
       self.v1TB.pos2Val(pos)
       self.v1 = self.v1TB.value
       self.H[2,0] = self.v1
+      self.drawHomographyMatrix()
       self.change = True
 
    def onV2(self, pos):
       self.v2TB.position = pos
       self.v2TB.pos2Val(pos)
       self.v2 = self.v2TB.value
+      self.drawHomographyMatrix()
       self.H[2,1] = self.v2
+
       self.change = True
 
    def assignCallBacks(self):
@@ -174,6 +224,7 @@ class homography:
       self.tyTB.onTrackbar = self.onTy
       self.l1TB.onTrackbar = self.onL1
       self.l2TB.onTrackbar = self.onL2
+      self.sTB.onTrackbar = self.onS
       self.thetaTB.onTrackbar = self.onTheta
       self.phiTB.onTrackbar = self.onPhi
       self.v1TB.onTrackbar = self.onV1
@@ -184,17 +235,37 @@ class homography:
       self.tyTB.launch()
       self.l1TB.launch()
       self.l2TB.launch()
+      self.sTB.launch()
       self.thetaTB.launch()
       self.phiTB.launch()
       self.v1TB.launch()
       self.v2TB.launch()
 
+argc = len(sys.argv)
+
+# Abre el flujo en donde vienen 
+#if argc < 2:
+#   print("Es necesario pasa un parámetro")
+#   exit(1)
+
+WIDTH = 640
+HEIGHT = 480
+
+version = 0.7071
+
+print("homographyExplorer.")
+print("version:", version)
+print("\nusing ", cv2.currentUIFramework(     ), " backend\n")
+
+
+plane = np.zeros((HEIGHT, WIDTH, 3), dtype=np.uint8)
+
 cv2.namedWindow('Plano',\
    cv2.WINDOW_AUTOSIZE | cv2.WINDOW_KEEPRATIO | cv2.WINDOW_GUI_EXPANDED )
 
 A     = Axes(HEIGHT, WIDTH, 10)
-Sq    = Square(A, 25)
-fixSq = Square(A, 25)
+Sq    = Square(A, 16)
+fixSq = Square(A, 16)
 
 minTx, midTx, maxTx = 0, WIDTH // (A.ticSize * 2), WIDTH // A.ticSize
 minTy, midTy, maxTy = 0, HEIGHT // (A.ticSize * 2), HEIGHT // A.ticSize
@@ -226,7 +297,7 @@ while True:
 
    key = cv2.waitKeyEx(33) & 0x000000FF
    if (key < 255):
-      if key == 27:
+      if key == 27 or chr(key) == 'q' or chr(key) == 'Q':
          break
       elif chr(key) == 'r' or chr(key) == 'R':
          Sq.reset()
