@@ -5,7 +5,7 @@ import numpy as np
 import cv2
 
 class Axes:
-   def __init__(self, r, c, ts=50, tw=3):
+   def __init__(self, r, c, ts=50, tw=3, smTI=5, smTILT = 2):
       self.rows = r
       self.cols = c
       self.ticSize = ts
@@ -15,6 +15,8 @@ class Axes:
       self.xhTics = ((self.cols - 1) // self.ticSize)//2
       self.yhTics = ((self.rows - 1) // self.ticSize)//2
       self.RED = (0,0,255)
+      self.smallTickInterval = smTI
+      self.smallTicksInLargeTick = smTILT
       self.tics = True
 
       hTicsA = np.arange(self.midX, 0, -self.ticSize).astype(int)
@@ -24,57 +26,57 @@ class Axes:
       
       P=[]
       fact = 1
-      cont5 = 0
-      cont10 = 0
+      contA = 0
+      contB = 0
       for i in vTicsA:
-         if cont5 % 5 == 0:
+         if contA % self.smallTickInterval == 0:
             fact = 2
-            if cont10 % 2 == 0:
+            if contB % self.smallTicksInLargeTick == 0:
                fact  = 3
-            cont10 += 1
+            contB += 1
          else:
             fact = 1
          P.append([self.midX - fact * self.ticWidth, i, self.midX + fact * self.ticWidth, i])
-         cont5 += 1
+         contA += 1
       fact = 1
-      cont5 = 1
-      cont10 = 0
+      contA = 1
+      contB = 0
       for i in vTicsB:
-         if cont5 % 5 == 0:
+         if contA % self.smallTickInterval == 0:
             fact = 2
-            if cont10 % 2 == 0:
+            if contB % self.smallTicksInLargeTick == 0:
                fact  = 3
-            cont10 += 1
+            contB += 1
          else:
             fact = 1
          P.append([self.midX - fact * self.ticWidth, i, self.midX + fact * self.ticWidth, i])
-         cont5 += 1
+         contA += 1
       fact = 1
-      cont5 = 0
-      cont10 = 0
+      contA = 0
+      contB = 0
       for i in hTicsA:
-         if cont5 % 5 == 0:
+         if contA % self.smallTickInterval == 0:
             fact = 2
-            if cont10 % 2 == 0:
+            if contB % self.smallTicksInLargeTick == 0:
                fact  = 3
-            cont10 += 1
+            contB += 1
          else:
             fact = 1
          P.append([i, self.midY - fact * self.ticWidth, i, self.midY + fact * self.ticWidth])
-         cont5 += 1
+         contA += 1
       fact = 1
-      cont5 = 1
-      cont10 = 0
+      contA = 1
+      contB = 0
       for i in hTicsB:
-         if cont5 % 5 == 0:
+         if contA % self.smallTickInterval == 0:
             fact = 2
-            if cont10 % 2 == 0:
+            if contB % self.smallTicksInLargeTick == 0:
                fact  = 3
-            cont10 += 1
+            contB += 1
          else:
             fact = 1
          P.append([i, self.midY - fact * self.ticWidth, i, self.midY + fact * self.ticWidth])
-         cont5 += 1
+         contA += 1
 
       self.pTics = np.array(P)
        
